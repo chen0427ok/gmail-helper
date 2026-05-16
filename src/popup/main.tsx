@@ -1,3 +1,4 @@
 import { render } from 'preact'
+import { App } from './App'
 
-render(<div>Popup</div>, document.getElementById('app')!)
+render(<App />, document.getElementById('app')!)

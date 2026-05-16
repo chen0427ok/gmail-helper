@@ -1,12 +1,13 @@
 import { defineConfig } from 'vitest/config'
 import preact from '@preact/preset-vite'
-import { crx } from '@crxjs/vite-plugin'
-import manifest from './manifest.json'
+import webExtension from 'vite-plugin-web-extension'
 
 export default defineConfig({
   plugins: [
     preact(),
-    crx({ manifest }),
+    webExtension({
+      manifest: 'manifest.json',
+    }),
   ],
   test: {
     environment: 'node',
