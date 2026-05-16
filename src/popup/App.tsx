@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'preact/hooks'
-import { convertToPolite } from '../lib/claude'
-import { loadApiKey } from '../lib/storage'
+import { convertToPolite } from '../lib/api'
+import { loadActiveApiKey } from '../lib/storage'
 
 type Status = 'idle' | 'loading' | 'done' | 'error'
 
@@ -12,8 +12,8 @@ export function App() {
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
-    loadApiKey().then((key) => {
-      if (!key) {
+    loadActiveApiKey().then(({ apiKey }) => {
+      if (!apiKey) {
         setStatus('error')
         setErrorMsg('尚未設定 API Key，請先前往設定頁面。')
       }
@@ -26,8 +26,8 @@ export function App() {
     setOutput('')
     setErrorMsg('')
     try {
-      const apiKey = await loadApiKey()
-      const result = await convertToPolite(input.trim(), apiKey)
+      const { apiKey, provider } = await loadActiveApiKey()
+      const result = await convertToPolite(input.trim(), apiKey, provider)
       setOutput(result)
       setStatus('done')
     } catch (e) {

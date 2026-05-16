@@ -1,5 +1,5 @@
-import { convertToPolite } from '../lib/claude'
-import { loadApiKey } from '../lib/storage'
+import { convertToPolite } from '../lib/api'
+import { loadActiveApiKey } from '../lib/storage'
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
@@ -22,8 +22,8 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   safeSend(tabId, { type: 'CONVERT_START' })
 
   try {
-    const apiKey = await loadApiKey()
-    const result = await convertToPolite(selectedText, apiKey)
+    const { apiKey, provider } = await loadActiveApiKey()
+    const result = await convertToPolite(selectedText, apiKey, provider)
     safeSend(tabId, { type: 'CONVERT_DONE', original: selectedText, result })
   } catch (e) {
     const message = e instanceof Error ? e.message : '轉換失敗，請再試一次。'
