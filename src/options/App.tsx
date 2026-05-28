@@ -11,7 +11,7 @@ const PROVIDERS: { value: Provider; label: string; placeholder: string }[] = [
 export function App() {
   const [provider, setProvider] = useState<Provider>('claude')
   const [keys, setKeys] = useState({ claudeApiKey: '', openaiApiKey: '', geminiApiKey: '' })
-  const [status, setStatus] = useState<'idle' | 'saved' | 'error'>('idle')
+  const [status, setStatus] = useState<'idle' | 'saved'>('idle')
 
   useEffect(() => {
     loadSettings().then((s) => {
@@ -25,13 +25,9 @@ export function App() {
 
   async function handleSave(e: Event) {
     e.preventDefault()
-    try {
-      await saveSettings({ provider, ...keys })
-      setStatus('saved')
-      setTimeout(() => setStatus('idle'), 2000)
-    } catch {
-      setStatus('error')
-    }
+    await saveSettings({ provider, ...keys })
+    setStatus('saved')
+    setTimeout(() => setStatus('idle'), 2000)
   }
 
   return (
@@ -79,7 +75,6 @@ export function App() {
 
         <button type="submit" style={s.button}>儲存</button>
         {status === 'saved' && <p style={s.success}>✓ 已儲存</p>}
-        {status === 'error' && <p style={s.errorMsg}>儲存失敗，請再試一次。</p>}
       </form>
     </div>
   )
@@ -96,5 +91,4 @@ const s: Record<string, Record<string, string | number>> = {
   hint: { fontSize: '12px', color: '#6b7280', margin: '0' },
   button: { marginTop: '8px', padding: '8px 16px', fontSize: '14px', fontWeight: '500', background: '#4f46e5', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', alignSelf: 'flex-start' },
   success: { fontSize: '13px', color: '#16a34a', margin: '0' },
-  errorMsg: { fontSize: '13px', color: '#dc2626', margin: '0' },
 }
