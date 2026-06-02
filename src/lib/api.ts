@@ -3,15 +3,43 @@ import type { Provider } from './storage'
 const PROMPT = (text: string) =>
   `Please rewrite the following text as a polite, formal letter. Keep the same language as the input. Only return the rewritten text, no explanations.\n\n${text}`
 
+export class ApiError extends Error {
+  constructor(message: string, public readonly status: number) {
+    super(message)
+    this.name = 'ApiError'
+  }
+}
+
 export async function convertToPolite(text: string, apiKey: string, provider: Provider): Promise<string> {
   if (!apiKey) throw new Error('尚未設定 API Key，請點右上角齒輪進行設定。')
   if (!text) throw new Error('Text is required')
 
   switch (provider) {
-    case 'claude':  return callClaude(text, apiKey)
-    case 'openai':  return callOpenAI(text, apiKey)
-    case 'gemini':  return callGemini(text, apiKey)
+    case 'claude':  return withRetry(() => callClaude(text, apiKey))
+    case 'openai':  return withRetry(() => callOpenAI(text, apiKey))
+    case 'gemini':  return withRetry(() => callGemini(text, apiKey))
   }
+}
+
+// Retries up to maxAttempts times with exponential backoff.
+// 4xx errors are not retried (client errors, e.g. invalid API key).
+// baseDelay is exported only so tests can pass 0 to avoid real sleeps.
+export async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 3, baseDelay = 1000): Promise<T> {
+  let lastError!: Error
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      return await fn()
+    } catch (e) {
+      lastError = e instanceof Error ? e : new Error(String(e))
+      if (lastError instanceof ApiError && lastError.status >= 400 && lastError.status < 500) break
+      if (attempt < maxAttempts - 1) await sleep(baseDelay * Math.pow(2, attempt))
+    }
+  }
+  throw lastError
+}
+
+function sleep(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms))
 }
 
 // ── Claude (Anthropic) ────────────────────────────────────────────────────────
@@ -32,7 +60,7 @@ async function callClaude(text: string, apiKey: string): Promise<string> {
     }),
   })
   const data = await res.json()
-  if (!res.ok) throw new Error(data?.error?.message ?? `Claude API 錯誤（${res.status}）`)
+  if (!res.ok) throw new ApiError(data?.error?.message ?? `Claude API 錯誤（${res.status}）`, res.status)
   return data.content[0].text
 }
 
@@ -51,7 +79,7 @@ async function callOpenAI(text: string, apiKey: string): Promise<string> {
     }),
   })
   const data = await res.json()
-  if (!res.ok) throw new Error(data?.error?.message ?? `OpenAI API 錯誤（${res.status}）`)
+  if (!res.ok) throw new ApiError(data?.error?.message ?? `OpenAI API 錯誤（${res.status}）`, res.status)
   return data.choices[0].message.content
 }
 
@@ -67,6 +95,6 @@ async function callGemini(text: string, apiKey: string): Promise<string> {
     }),
   })
   const data = await res.json()
-  if (!res.ok) throw new Error(data?.error?.message ?? `Gemini API 錯誤（${res.status}）`)
+  if (!res.ok) throw new ApiError(data?.error?.message ?? `Gemini API 錯誤（${res.status}）`, res.status)
   return data.candidates[0].content.parts[0].text
 }
