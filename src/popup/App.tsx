@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'preact/hooks'
 import { convertToPolite } from '../lib/api'
-import { loadActiveApiKey } from '../lib/storage'
+import { loadActiveApiKey, MODELS } from '../lib/storage'
 
 type Status = 'idle' | 'loading' | 'done' | 'error'
 
@@ -10,9 +10,12 @@ export function App() {
   const [status, setStatus] = useState<Status>('idle')
   const [errorMsg, setErrorMsg] = useState('')
   const [copied, setCopied] = useState(false)
+  const [modelLabel, setModelLabel] = useState('')
 
   useEffect(() => {
-    loadActiveApiKey().then(({ apiKey }) => {
+    loadActiveApiKey().then(({ apiKey, provider, model }) => {
+      const found = MODELS[provider].find((m) => m.value === model)
+      setModelLabel(found?.label ?? model)
       if (!apiKey) {
         setStatus('error')
         setErrorMsg('尚未設定 API Key，請先前往設定頁面。')
@@ -26,8 +29,8 @@ export function App() {
     setOutput('')
     setErrorMsg('')
     try {
-      const { apiKey, provider } = await loadActiveApiKey()
-      const result = await convertToPolite(input.trim(), apiKey, provider)
+      const { apiKey, provider, model } = await loadActiveApiKey()
+      const result = await convertToPolite(input.trim(), apiKey, provider, model)
       setOutput(result)
       setStatus('done')
     } catch (e) {
@@ -49,7 +52,10 @@ export function App() {
   return (
     <div style={s.container}>
       <header style={s.header}>
-        <span style={s.logo}>✉ Polite Mail</span>
+        <div>
+          <span style={s.logo}>✉ Polite Mail</span>
+          {modelLabel && <span style={s.modelBadge}>{modelLabel}</span>}
+        </div>
         <button onClick={openOptions} style={s.gear} title="設定">
           ⚙
         </button>
@@ -105,6 +111,16 @@ const s: Record<string, Record<string, string | number>> = {
   logo: {
     fontSize: '15px',
     fontWeight: '600',
+  },
+  modelBadge: {
+    marginLeft: '8px',
+    fontSize: '11px',
+    color: '#6b7280',
+    background: '#f3f4f6',
+    border: '1px solid #e5e7eb',
+    borderRadius: '4px',
+    padding: '1px 6px',
+    verticalAlign: 'middle',
   },
   gear: {
     background: 'none',

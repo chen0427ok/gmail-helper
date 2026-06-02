@@ -22,8 +22,8 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   safeSend(tabId, { type: 'CONVERT_START' })
 
   try {
-    const { apiKey, provider } = await loadActiveApiKey()
-    const result = await convertToPolite(selectedText, apiKey, provider)
+    const { apiKey, provider, model } = await loadActiveApiKey()
+    const result = await convertToPolite(selectedText, apiKey, provider, model)
     safeSend(tabId, { type: 'CONVERT_DONE', original: selectedText, result })
   } catch (e) {
     const message = e instanceof Error ? e.message : '轉換失敗，請再試一次。'

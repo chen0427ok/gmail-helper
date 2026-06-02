@@ -10,14 +10,14 @@ export class ApiError extends Error {
   }
 }
 
-export async function convertToPolite(text: string, apiKey: string, provider: Provider): Promise<string> {
+export async function convertToPolite(text: string, apiKey: string, provider: Provider, model: string): Promise<string> {
   if (!apiKey) throw new Error('尚未設定 API Key，請點右上角齒輪進行設定。')
   if (!text) throw new Error('Text is required')
 
   switch (provider) {
-    case 'claude':  return withRetry(() => callClaude(text, apiKey))
-    case 'openai':  return withRetry(() => callOpenAI(text, apiKey))
-    case 'gemini':  return withRetry(() => callGemini(text, apiKey))
+    case 'claude':  return withRetry(() => callClaude(text, apiKey, model))
+    case 'openai':  return withRetry(() => callOpenAI(text, apiKey, model))
+    case 'gemini':  return withRetry(() => callGemini(text, apiKey, model))
   }
 }
 
@@ -44,7 +44,7 @@ function sleep(ms: number) {
 
 // ── Claude (Anthropic) ────────────────────────────────────────────────────────
 
-async function callClaude(text: string, apiKey: string): Promise<string> {
+async function callClaude(text: string, apiKey: string, model: string): Promise<string> {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -54,7 +54,7 @@ async function callClaude(text: string, apiKey: string): Promise<string> {
       'content-type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
+      model,
       max_tokens: 1024,
       messages: [{ role: 'user', content: PROMPT(text) }],
     }),
@@ -66,7 +66,7 @@ async function callClaude(text: string, apiKey: string): Promise<string> {
 
 // ── OpenAI ────────────────────────────────────────────────────────────────────
 
-async function callOpenAI(text: string, apiKey: string): Promise<string> {
+async function callOpenAI(text: string, apiKey: string, model: string): Promise<string> {
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -74,7 +74,7 @@ async function callOpenAI(text: string, apiKey: string): Promise<string> {
       'content-type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-4o-mini',
+      model,
       messages: [{ role: 'user', content: PROMPT(text) }],
     }),
   })
@@ -85,8 +85,8 @@ async function callOpenAI(text: string, apiKey: string): Promise<string> {
 
 // ── Gemini ────────────────────────────────────────────────────────────────────
 
-async function callGemini(text: string, apiKey: string): Promise<string> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`
+async function callGemini(text: string, apiKey: string, model: string): Promise<string> {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },

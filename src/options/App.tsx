@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'preact/hooks'
-import { saveSettings, loadSettings } from '../lib/storage'
+import { saveSettings, loadSettings, MODELS } from '../lib/storage'
 import type { Provider } from '../lib/storage'
 
 const PROVIDERS: { value: Provider; label: string; placeholder: string }[] = [
@@ -11,21 +11,28 @@ const PROVIDERS: { value: Provider; label: string; placeholder: string }[] = [
 export function App() {
   const [provider, setProvider] = useState<Provider>('claude')
   const [keys, setKeys] = useState({ claudeApiKey: '', openaiApiKey: '', geminiApiKey: '' })
+  const [models, setModels] = useState({
+    claudeModel: MODELS.claude[0].value,
+    openaiModel: MODELS.openai[0].value,
+    geminiModel: MODELS.gemini[0].value,
+  })
   const [status, setStatus] = useState<'idle' | 'saved'>('idle')
 
   useEffect(() => {
     loadSettings().then((s) => {
       setProvider(s.provider)
       setKeys({ claudeApiKey: s.claudeApiKey, openaiApiKey: s.openaiApiKey, geminiApiKey: s.geminiApiKey })
+      setModels({ claudeModel: s.claudeModel, openaiModel: s.openaiModel, geminiModel: s.geminiModel })
     })
   }, [])
 
   const activeKeyField = provider === 'claude' ? 'claudeApiKey' : provider === 'openai' ? 'openaiApiKey' : 'geminiApiKey'
+  const activeModelField = provider === 'claude' ? 'claudeModel' : provider === 'openai' ? 'openaiModel' : 'geminiModel'
   const activePlaceholder = PROVIDERS.find((p) => p.value === provider)!.placeholder
 
   async function handleSave(e: Event) {
     e.preventDefault()
-    await saveSettings({ provider, ...keys })
+    await saveSettings({ provider, ...keys, ...models })
     setStatus('saved')
     setTimeout(() => setStatus('idle'), 2000)
   }
@@ -52,6 +59,19 @@ export function App() {
             </label>
           ))}
         </div>
+
+        {/* Model selector for active provider */}
+        <label style={s.label} htmlFor="model">模型</label>
+        <select
+          id="model"
+          value={models[activeModelField]}
+          onChange={(e) => setModels({ ...models, [activeModelField]: (e.target as HTMLSelectElement).value })}
+          style={s.select}
+        >
+          {MODELS[provider].map((m) => (
+            <option key={m.value} value={m.value}>{m.label}</option>
+          ))}
+        </select>
 
         {/* API Key input for active provider */}
         <label style={s.label} htmlFor="apiKey">API Key</label>
@@ -87,6 +107,7 @@ const s: Record<string, Record<string, string | number>> = {
   label: { fontSize: '14px', fontWeight: '500' },
   radioGroup: { display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '4px' },
   radioLabel: { fontSize: '14px', cursor: 'pointer', display: 'flex', alignItems: 'center' },
+  select: { padding: '8px 12px', fontSize: '14px', border: '1px solid #d1d5db', borderRadius: '6px', outline: 'none', background: '#fff', cursor: 'pointer' },
   input: { padding: '8px 12px', fontSize: '14px', border: '1px solid #d1d5db', borderRadius: '6px', outline: 'none', fontFamily: 'monospace' },
   hint: { fontSize: '12px', color: '#6b7280', margin: '0' },
   button: { marginTop: '8px', padding: '8px 16px', fontSize: '14px', fontWeight: '500', background: '#4f46e5', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', alignSelf: 'flex-start' },

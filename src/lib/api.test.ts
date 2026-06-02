@@ -16,11 +16,11 @@ beforeEach(() => {
 
 describe('convertToPolite – guards', () => {
   it('throws when apiKey is empty', async () => {
-    await expect(convertToPolite('hello', '', 'claude')).rejects.toThrow('尚未設定 API Key')
+    await expect(convertToPolite('hello', '', 'claude', 'claude-haiku-4-5-20251001')).rejects.toThrow('尚未設定 API Key')
   })
 
   it('throws when text is empty', async () => {
-    await expect(convertToPolite('', 'key', 'claude')).rejects.toThrow('Text is required')
+    await expect(convertToPolite('', 'key', 'claude', 'claude-haiku-4-5-20251001')).rejects.toThrow('Text is required')
   })
 })
 
@@ -29,7 +29,7 @@ describe('convertToPolite – guards', () => {
 describe('convertToPolite – claude', () => {
   it('returns converted text on success', async () => {
     mockFetch.mockResolvedValueOnce(makeResponse({ content: [{ text: 'Polite version' }] }))
-    const result = await convertToPolite('hello', 'sk-ant-test', 'claude')
+    const result = await convertToPolite('hello', 'sk-ant-test', 'claude', 'claude-haiku-4-5-20251001')
     expect(result).toBe('Polite version')
     expect(mockFetch).toHaveBeenCalledWith(
       'https://api.anthropic.com/v1/messages',
@@ -40,17 +40,17 @@ describe('convertToPolite – claude', () => {
     )
   })
 
-  it('sends correct model and max_tokens', async () => {
+  it('sends the specified model in the request body', async () => {
     mockFetch.mockResolvedValueOnce(makeResponse({ content: [{ text: 'x' }] }))
-    await convertToPolite('hello', 'key', 'claude')
+    await convertToPolite('hello', 'key', 'claude', 'claude-sonnet-4-6')
     const body = JSON.parse(mockFetch.mock.calls[0][1].body)
-    expect(body.model).toBe('claude-haiku-4-5-20251001')
+    expect(body.model).toBe('claude-sonnet-4-6')
     expect(body.max_tokens).toBe(1024)
   })
 
   it('throws ApiError on 4xx and does not retry', async () => {
     mockFetch.mockResolvedValue(makeResponse({ error: { message: 'Invalid API key' } }, 401))
-    await expect(convertToPolite('hello', 'bad-key', 'claude')).rejects.toMatchObject({
+    await expect(convertToPolite('hello', 'bad-key', 'claude', 'claude-haiku-4-5-20251001')).rejects.toMatchObject({
       message: 'Invalid API key',
       status: 401,
     })
@@ -59,7 +59,7 @@ describe('convertToPolite – claude', () => {
 
   it('uses fallback message when error body lacks message field', async () => {
     mockFetch.mockResolvedValue(makeResponse({}, 401))
-    await expect(convertToPolite('hello', 'key', 'claude')).rejects.toMatchObject({
+    await expect(convertToPolite('hello', 'key', 'claude', 'claude-haiku-4-5-20251001')).rejects.toMatchObject({
       message: 'Claude API 錯誤（401）',
     })
   })
@@ -72,7 +72,7 @@ describe('convertToPolite – openai', () => {
     mockFetch.mockResolvedValueOnce(
       makeResponse({ choices: [{ message: { content: 'Polite' } }] }),
     )
-    const result = await convertToPolite('hi', 'sk-openai', 'openai')
+    const result = await convertToPolite('hi', 'sk-openai', 'openai', 'gpt-4o-mini')
     expect(result).toBe('Polite')
     expect(mockFetch).toHaveBeenCalledWith(
       'https://api.openai.com/v1/chat/completions',
@@ -82,9 +82,16 @@ describe('convertToPolite – openai', () => {
     )
   })
 
+  it('sends the specified model in the request body', async () => {
+    mockFetch.mockResolvedValueOnce(makeResponse({ choices: [{ message: { content: 'x' } }] }))
+    await convertToPolite('hi', 'key', 'openai', 'gpt-4o')
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body)
+    expect(body.model).toBe('gpt-4o')
+  })
+
   it('throws ApiError on 4xx and does not retry', async () => {
     mockFetch.mockResolvedValue(makeResponse({ error: { message: 'Rate limit' } }, 429))
-    await expect(convertToPolite('hi', 'sk-openai', 'openai')).rejects.toMatchObject({ status: 429 })
+    await expect(convertToPolite('hi', 'sk-openai', 'openai', 'gpt-4o-mini')).rejects.toMatchObject({ status: 429 })
     expect(mockFetch).toHaveBeenCalledTimes(1)
   })
 })
@@ -96,19 +103,19 @@ describe('convertToPolite – gemini', () => {
     mockFetch.mockResolvedValueOnce(
       makeResponse({ candidates: [{ content: { parts: [{ text: 'Polished' }] } }] }),
     )
-    const result = await convertToPolite('hey', 'gm-key', 'gemini')
+    const result = await convertToPolite('hey', 'gm-key', 'gemini', 'gemini-2.5-flash')
     expect(result).toBe('Polished')
-    expect(mockFetch).toHaveBeenCalledWith(
-      expect.stringContaining('gemini-2.5-flash'),
-      expect.any(Object),
-    )
   })
 
-  it('includes API key in URL', async () => {
+  it('includes model name and API key in URL', async () => {
     mockFetch.mockResolvedValueOnce(
       makeResponse({ candidates: [{ content: { parts: [{ text: 'x' }] } }] }),
     )
-    await convertToPolite('hey', 'my-secret-key', 'gemini')
+    await convertToPolite('hey', 'my-secret-key', 'gemini', 'gemini-2.0-flash')
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('gemini-2.0-flash'),
+      expect.any(Object),
+    )
     expect(mockFetch).toHaveBeenCalledWith(
       expect.stringContaining('key=my-secret-key'),
       expect.any(Object),
@@ -117,13 +124,12 @@ describe('convertToPolite – gemini', () => {
 
   it('throws ApiError on 4xx and does not retry', async () => {
     mockFetch.mockResolvedValue(makeResponse({ error: { message: 'Bad key' } }, 400))
-    await expect(convertToPolite('hey', 'bad', 'gemini')).rejects.toMatchObject({ status: 400 })
+    await expect(convertToPolite('hey', 'bad', 'gemini', 'gemini-2.5-flash')).rejects.toMatchObject({ status: 400 })
     expect(mockFetch).toHaveBeenCalledTimes(1)
   })
 })
 
 // ── withRetry ─────────────────────────────────────────────────────────────────
-// Tests use baseDelay = 0 to avoid real sleeps.
 
 describe('withRetry', () => {
   it('returns immediately on success', async () => {
